@@ -15,23 +15,23 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-public class UserServiceImpl implements UserService {
+public class UserEventServiceImpl implements UserService {
     private Logger logger = LoggerFactory.getLogger(this.getClass());
     private DaoCrudInterface<User> dao;
     private Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
-    public UserServiceImpl(DaoCrudInterface<User> dao) {
+    public UserEventServiceImpl(DaoCrudInterface<User> dao) {
         this.dao = dao;
     }
 
     @Override
     public List<User> search() throws Exception {
-        throw new Exception("Method not implemented");
+        return this.dao.search();
     }
 
     @Override
     public List<User> getAll() throws Exception {
-        throw new Exception("Method not implemented");
+        return this.dao.search();
     }
 
     @Override
@@ -51,9 +51,9 @@ public class UserServiceImpl implements UserService {
     public User create(User item) throws Exception {
         Timer timer = new Timer().start();
 
-        if (item == null) {
-            throw new Exception("item is null");
-        } else {
+        if (item != null) {
+            item.setId(UUID.randomUUID().toString());
+
             if (item.getCreated() == null) {
                 item.setCreated(new Date().getTime());
             }
@@ -62,12 +62,12 @@ public class UserServiceImpl implements UserService {
         Set<ConstraintViolation<User>> violations = this.validator.validate(item);
 
         if (violations.size() > 0) {
-            if (violations.size() != 1 && !violations.toString().contains("must not be blank', propertyPath=id")) {
-                throw new Exception("Invalid item: " + violations.toString());
-            }
+            throw new Exception("Invalid item: " + violations.toString());
         }
 
         User created = this.dao.create(item);
+        // This guarantees item is created
+        // User created = this.get(item.getId());
         this.logger.info("Created item by ID: " + item.getId() + " in " + timer.stopAndGetDiff() + " ms");
         return created;
     }
@@ -81,6 +81,8 @@ public class UserServiceImpl implements UserService {
         }
 
         this.dao.remove(id);
+        // This guarantees item is removed
+//        this.dao.verifyRemoval(id);
         this.logger.info("Removed item by ID: " + id + " in " + timer.stopAndGetDiff() + " ms");
     }
 
@@ -93,10 +95,6 @@ public class UserServiceImpl implements UserService {
     public User update(User item) throws Exception {
         Timer timer = new Timer().start();
 
-        if (item == null) {
-            throw new Exception("item is null");
-        }
-
         Set<ConstraintViolation<User>> violations = this.validator.validate(item);
 
         if (violations.size() > 0) {
@@ -104,6 +102,8 @@ public class UserServiceImpl implements UserService {
         }
 
         User updated = this.dao.update(item);
+        // This guarantees item is created
+        // User updated = this.get(item.getId());
         this.logger.info("Updated item by ID: " + item.getId() + " in " + timer.stopAndGetDiff() + " ms");
         return updated;
     }

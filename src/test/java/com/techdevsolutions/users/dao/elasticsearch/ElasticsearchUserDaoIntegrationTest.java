@@ -1,5 +1,6 @@
 package com.techdevsolutions.users.dao.elasticsearch;
 
+import com.techdevsolutions.common.dao.elasticsearch.BaseElasticsearchHighLevel;
 import com.techdevsolutions.common.dao.elasticsearch.events.EventElasticsearchDAO;
 import com.techdevsolutions.users.beans.auditable.User;
 import com.techdevsolutions.users.beans.auditable.UserTest;
@@ -11,6 +12,7 @@ import org.elasticsearch.search.SearchModule;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -18,19 +20,20 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+@Ignore
 public class ElasticsearchUserDaoIntegrationTest {
 
     private ElasticsearchUserDao dao = new ElasticsearchUserDao(null);
-    private EventElasticsearchDAO eventElasticsearchDAO =
-            new EventElasticsearchDAO("localhost", ElasticsearchUserDao.INDEX_BASE_NAME);
+    private BaseElasticsearchHighLevel baseElasticsearchHighLevel = new BaseElasticsearchHighLevel("localhost");
     private List<String> ids = new ArrayList<>();
 
     @After
-    public void after() throws InterruptedException, IOException {
+    public void after() throws InterruptedException {
         this.cleanup();
     }
 
-    public void cleanup() throws InterruptedException, IOException {
+    public void cleanup() throws InterruptedException {
+        System.out.println("Cleaning up...");
         Thread.sleep(3000L);
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -42,7 +45,7 @@ public class ElasticsearchUserDaoIntegrationTest {
                 "      \"must\": [\n" +
                 "        {\n" +
                 "          \"term\": {\n" +
-                "            \"event.data.email.keyword\": {\n" +
+                "            \"email.keyword\": {\n" +
                 "              \"value\": \"testuser@gmail.com\"\n" +
                 "            }\n" +
                 "          }\n" +
@@ -70,10 +73,12 @@ public class ElasticsearchUserDaoIntegrationTest {
         request.setRefresh(true);
 
         try {
-            this.eventElasticsearchDAO.deleteByQuery(request);
+            this.baseElasticsearchHighLevel.deleteByQuery(request);
         } catch (Exception ignored) {
 
         }
+
+        System.out.println("Cleaning up... DONE");
     }
 
 //    @Test
@@ -94,11 +99,17 @@ public class ElasticsearchUserDaoIntegrationTest {
 
     @Test
     public void get() throws Exception {
-        User user = UserTest.GenerateTestUser();
-        User created = this.dao.create(user);
+        User item = UserTest.GenerateTestUser();
+        User created = this.dao.create(item);
         this.ids.add(created.getId());
-        User get = this.dao.get(created.getId());
-        Assert.assertTrue(get.equals(created));
+        User verify = this.dao.get(created.getId());
+        Assert.assertEquals(verify, created);
+
+        item.setId(null);
+        created = this.dao.create(item);
+        this.ids.add(created.getId());
+        verify = this.dao.get(created.getId());
+        Assert.assertEquals(verify, created);
     }
 
 //    @Test
@@ -112,40 +123,29 @@ public class ElasticsearchUserDaoIntegrationTest {
         User created = this.dao.create(user);
         this.ids.add(created.getId());
         this.dao.remove(user.getId());
-//        this.eventElasticsearchDAO.verifyRemoval(user.getId(), UserEvent.CATEGORY, UserEvent.DATASET);
-//
-//        try {
-//            this.dao.get(created.getId());
-//            Assert.assertTrue(false);
-//        } catch (Exception e) {
-//            Assert.assertTrue(e.getMessage().contains("Item has been removed"));
-//        }
-    }
-
-    @Test
-    public void delete() {
-        User user = UserTest.GenerateTestUser();
 
         try {
-            this.dao.delete(user.getId());
-            Assert.assertTrue(false);
+            this.dao.get(created.getId());
+            Assert.fail();
         } catch (Exception e) {
-            Assert.assertTrue(e.getMessage().contains("Method not implemented: Events are never meant to be deleted. " +
-                    "Did you mean to use remove()?"));
+            Assert.assertTrue(e.getMessage().contains("Failed to get item by ID"));
         }
     }
+
+//    @Test
+//    public void delete() {
+//        // same as remove()
+//    }
 
     @Test
     public void update() throws Exception {
         User user = UserTest.GenerateTestUser();
         User created = this.dao.create(user);
-        Assert.assertTrue(user.equals(created));
+        Assert.assertEquals(user, created);
 
         created.setName("test new name");
         this.dao.update(created);
-//        this.eventElasticsearchDAO.verifyUpdate(user.getId(), UserEvent.CATEGORY, UserEvent.DATASET);
-//
-//        User updated = this.dao.get(created.getId());
-//        Assert.assertTrue(created.equals(updated));
+        User updated = this.dao.get(created.getId());
+        Assert.assertEquals(created, updated);
     }
 }

@@ -12,11 +12,11 @@ import org.junit.Test;
 import java.util.List;
 
 @Ignore
-public class ElasticsearchUserDaoIntegrationTestV2 {
+public class ElasticsearchUserEventDaoIntegrationTestV2 {
 
-    private ElasticsearchUserDao dao = new ElasticsearchUserDao(null);
+    private ElasticsearchUserEventDao dao = new ElasticsearchUserEventDao(null);
     private EventElasticsearchDAO eventElasticsearchDAO =
-            new EventElasticsearchDAO("localhost", ElasticsearchUserDao.INDEX_BASE_NAME);
+            new EventElasticsearchDAO("localhost", ElasticsearchUserEventDao.INDEX_BASE_NAME);
 
     @Test
     public void create() throws Exception {

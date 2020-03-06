@@ -1,10 +1,8 @@
 package com.techdevsolutions.users.service;
 
-import com.techdevsolutions.common.dao.elasticsearch.BaseElasticsearchHighLevel;
 import com.techdevsolutions.common.dao.elasticsearch.events.EventElasticsearchDAO;
 import com.techdevsolutions.users.beans.auditable.User;
 import com.techdevsolutions.users.beans.auditable.UserTest;
-import com.techdevsolutions.users.dao.elasticsearch.ElasticsearchUserDao;
 import com.techdevsolutions.users.dao.elasticsearch.ElasticsearchUserEventDao;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.settings.Settings;
@@ -24,20 +22,20 @@ import java.util.Collections;
 import java.util.List;
 
 @Ignore
-public class UserServiceImplIntegrationTest {
-    private ElasticsearchUserDao dao = new ElasticsearchUserDao(null);
-    private BaseElasticsearchHighLevel baseElasticsearchHighLevel = new BaseElasticsearchHighLevel("localhost");
-    private UserServiceImpl userService = new UserServiceImpl(this.dao);
+public class UserEventServiceImplIntegrationTest {
+    private ElasticsearchUserEventDao dao = new ElasticsearchUserEventDao(null);
+    private UserEventServiceImpl userService = new UserEventServiceImpl(this.dao);
+    private EventElasticsearchDAO eventElasticsearchDAO =
+            new EventElasticsearchDAO("localhost", ElasticsearchUserEventDao.INDEX_BASE_NAME);
 
     private List<String> ids = new ArrayList<>();
 
     @After
-    public void after() throws InterruptedException {
+    public void after() throws InterruptedException, IOException {
         this.cleanup();
     }
 
-    public void cleanup() throws InterruptedException {
-        System.out.println("Cleaning up...");
+    public void cleanup() throws InterruptedException, IOException {
         Thread.sleep(3000L);
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -49,7 +47,7 @@ public class UserServiceImplIntegrationTest {
                 "      \"must\": [\n" +
                 "        {\n" +
                 "          \"term\": {\n" +
-                "            \"email.keyword\": {\n" +
+                "            \"event.data.email.keyword\": {\n" +
                 "              \"value\": \"testuser@gmail.com\"\n" +
                 "            }\n" +
                 "          }\n" +
@@ -69,7 +67,7 @@ public class UserServiceImplIntegrationTest {
             e.printStackTrace();
         }
 
-        DeleteByQueryRequest request = new DeleteByQueryRequest(ElasticsearchUserDao.INDEX_BASE_NAME);
+        DeleteByQueryRequest request = new DeleteByQueryRequest(ElasticsearchUserEventDao.INDEX_BASE_NAME);
         request.setQuery(searchSourceBuilder.query());
         request.setMaxDocs(10000);
         request.setBatchSize(1000);
@@ -77,12 +75,10 @@ public class UserServiceImplIntegrationTest {
         request.setRefresh(true);
 
         try {
-            this.baseElasticsearchHighLevel.deleteByQuery(request);
+            this.eventElasticsearchDAO.deleteByQuery(request);
         } catch (Exception ignored) {
 
         }
-
-        System.out.println("Cleaning up... DONE");
     }
 
 //    @Test
@@ -101,13 +97,7 @@ public class UserServiceImplIntegrationTest {
         this.ids.add(created.getId());
         Assert.assertTrue(StringUtils.isNotEmpty(created.getId()));
         User verify = this.userService.get(created.getId());
-        Assert.assertEquals(created, verify);
-
-        item.setId(null);
-        created = this.userService.create(item);
-        this.ids.add(created.getId());
-        verify = this.userService.get(created.getId());
-        Assert.assertEquals(verify, created);
+        Assert.assertTrue(created.equals(verify));
     }
 
 //    @Test
@@ -121,13 +111,14 @@ public class UserServiceImplIntegrationTest {
         User created = this.userService.create(user);
         this.ids.add(created.getId());
         this.userService.remove(user.getId());
-
-        try {
-            this.userService.get(created.getId());
-            Assert.fail();
-        } catch (Exception e) {
-            Assert.assertTrue(e.getMessage().contains("Failed to get item by ID"));
-        }
+//        this.eventElasticsearchDAO.verifyRemoval(user.getId(), UserEvent.CATEGORY, UserEvent.DATASET);
+//
+//        try {
+//            this.userService.get(created.getId());
+//            Assert.assertTrue(false);
+//        } catch (Exception e) {
+//            Assert.assertTrue(e.getMessage().contains("Item has been removed"));
+//        }
     }
 
 //    @Test
@@ -140,12 +131,14 @@ public class UserServiceImplIntegrationTest {
         User user = UserTest.GenerateTestUser();
         User created = this.userService.create(user);
         this.ids.add(created.getId());
-        Assert.assertEquals(user, created);
+        Assert.assertTrue(user.equals(created));
 
         created.setName("test new name");
-        this.userService.update(created);
-        User verify = this.userService.get(created.getId());
-        Assert.assertEquals(created, verify);
+        User updated = this.userService.update(created);
+//        this.eventElasticsearchDAO.verifyUpdate(user.getId(), UserEvent.CATEGORY, UserEvent.DATASET);
+//
+//        User verify = this.userService.get(created.getId());
+//        Assert.assertTrue(created.equals(verify));
     }
 
 //    @Test

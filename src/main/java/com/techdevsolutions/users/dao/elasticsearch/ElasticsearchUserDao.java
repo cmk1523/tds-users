@@ -4,14 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.techdevsolutions.common.beans.elasticsearchCommonSchema.Event;
 import com.techdevsolutions.common.dao.DaoCrudInterface;
+import com.techdevsolutions.common.dao.elasticsearch.BaseElasticsearchHighLevel;
 import com.techdevsolutions.common.dao.elasticsearch.events.EventElasticsearchDAO;
 import com.techdevsolutions.common.service.core.Timer;
 import com.techdevsolutions.users.beans.UserCreatedEvent;
 import com.techdevsolutions.users.beans.UserEvent;
 import com.techdevsolutions.users.beans.UserRemovedEvent;
 import com.techdevsolutions.users.beans.UserUpdatedEvent;
-import com.techdevsolutions.users.beans.auditable.*;
+import com.techdevsolutions.users.beans.auditable.User;
 import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.get.GetResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,47 +26,50 @@ import java.util.List;
 public class ElasticsearchUserDao implements DaoCrudInterface<User> {
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    public static final String INDEX_BASE_NAME = "events-users";
+    public static final String INDEX_BASE_NAME = "users";
 
-    private EventElasticsearchDAO dao;
+    private BaseElasticsearchHighLevel dao;
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public ElasticsearchUserDao(Environment environment) {
-        this.dao = new EventElasticsearchDAO("localhost", ElasticsearchUserDao.INDEX_BASE_NAME);
+        this.dao = new BaseElasticsearchHighLevel("localhost");
 
         if (environment != null) {
             String elasticsearchHost = environment.getProperty("user.dao.elasticsearch.host");
 
             if (StringUtils.isNotEmpty(elasticsearchHost)) {
-                this.dao = new EventElasticsearchDAO(elasticsearchHost, ElasticsearchUserDao.INDEX_BASE_NAME);
+                this.dao = new BaseElasticsearchHighLevel(elasticsearchHost);
             }
         }
-
-        this.dao = new EventElasticsearchDAO("localhost", ElasticsearchUserDao.INDEX_BASE_NAME);
-    }
-
-    public static UserEvent RemoveUnusedFields(final UserEvent item) throws Exception {
-        // Remove fields from the event object that just don't need to be stored
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new Jdk8Module());
-        UserEvent copy = objectMapper.readValue(objectMapper.writeValueAsString(item), UserEvent.class);
-        copy.setSeverity(null);
-        copy.setSequence(null);
-        copy.setStart(null);
-        copy.setEnd(null);
-        copy.setTimezone(null);
-        copy.setRiskScore(null);
-        copy.setRisrScoreNormalized(null);
-        copy.setProvider(null);
-        copy.setModule(null);
-        copy.setOutcome(null);
-        copy.setHash(null);
-        copy.setOriginal(null);
-        return copy;
     }
 
     @Override
-    public List<User> search() {
+    public List<User> search() throws Exception {
+        throw new Exception("Methd not yet implemented");
+    }
+
+    private User tryAndGetItem(String id) throws Exception {
+        int maxCount = 3;
+        int count = 0;
+
+        while(count < maxCount) {
+            try {
+                User user = this.get(id);
+
+                if (user != null) {
+                    return user;
+                }
+            } catch (Exception ignored) {}
+
+            try {
+                Thread.sleep(500 * (count + 1));
+                count++;
+            } catch (InterruptedException ex) {
+                ex.printStackTrace();
+            }
+        }
+
         return null;
     }
 
@@ -77,16 +82,16 @@ public class ElasticsearchUserDao implements DaoCrudInterface<User> {
                 throw new IllegalArgumentException("id is null or empty");
             }
 
-            Event event = this.dao.getEventByEventDataIdLazy(id, UserEvent.CATEGORY, UserEvent.DATASET);
-            UserEvent userEvent = new ObjectMapper().convertValue(event, UserEvent.class);
+            GetResponse getResponse = this.dao.getDocument(id, ElasticsearchUserDao.INDEX_BASE_NAME);
 
-            if (userEvent.getAction().equals(EventElasticsearchDAO.ACTION_REMOVED)) {
-                throw new Exception(("Item has been removed"));
+            if (getResponse.isExists()) {
+                User item = this.objectMapper.convertValue(getResponse.getSource(), User.class);
+                item.setId(getResponse.getId());
+                this.logger.info("Got item by ID: " + id + " in " + timer.stopAndGetDiff() + " ms");
+                return item;
+            } else {
+                throw new Exception("Failed to get item by ID: " + id + " in " + timer.stopAndGetDiff() + " ms");
             }
-
-            User item = userEvent.getData();
-            this.logger.info("Got item by ID: " + id + " in " + timer.stopAndGetDiff() + " ms");
-            return item;
         } catch (Exception e) {
             this.logger.info("Failed to get item by ID: " + id + " in " + timer.stopAndGetDiff() + " ms");
             throw e;
@@ -98,62 +103,78 @@ public class ElasticsearchUserDao implements DaoCrudInterface<User> {
         Timer timer = new Timer().start();
         User itemToFind = null;
 
-        try {
-            itemToFind = this.get(item.getId());
-        } catch (Exception e) {
-            if (e.getMessage().contains("Item has been removed")) {
-                throw e;
+        if (!StringUtils.isEmpty(item.getId())) {
+            try {
+                itemToFind = this.get(item.getId());
+
+                if (itemToFind != null) {
+                    throw new Exception("Item already exists with id: " + item.getId());
+                }
+            } catch (Exception e) {
+                if (e.getMessage().contains("Item has been removed")) {
+                    throw e;
+                }
             }
         }
 
-        if (itemToFind != null) {
-            throw new Exception("Item already exists with id: " + item.getId());
+        String itemAsStr = this.objectMapper.writeValueAsString(item);
+
+        String itemId = item.getId();
+
+        if (StringUtils.isEmpty(itemId)) {
+            itemId = this.dao.createDocument(itemAsStr, ElasticsearchUserDao.INDEX_BASE_NAME);
+        } else {
+            this.dao.createDocument(itemAsStr, item.getId(), ElasticsearchUserDao.INDEX_BASE_NAME);
         }
 
-        UserCreatedEvent createdEvent = new UserCreatedEvent(item);
-        UserEvent event = ElasticsearchUserDao.RemoveUnusedFields(createdEvent);
-        this.dao.create(event);
-        Thread.sleep(1L); // wait a second because we dont want to the create time to be same as any other
+        User newItem = this.tryAndGetItem(itemId);
+        if (newItem == null) {
+            throw new Exception("Unable to create item. Unable to verify item exists.");
+        }
+
         this.logger.info("Created item by ID: " + item.getId() + " in " + timer.stopAndGetDiff() + " ms");
-        return item;
+        return newItem;
     }
 
     @Override
     public void remove(final String id) throws Exception {
         Timer timer = new Timer().start();
 
-        User item = this.get(id);
-        UserRemovedEvent removedEvent = new UserRemovedEvent(item);
-        UserEvent event = ElasticsearchUserDao.RemoveUnusedFields(removedEvent);
-        this.dao.create(event);
-        this.logger.info("Removed item by ID: " + item.getId() + " in " + timer.stopAndGetDiff() + " ms");
+        try {
+            this.dao.deleteDocument(id, ElasticsearchUserDao.INDEX_BASE_NAME);
+        } catch (Exception ignored) {}
+
+        this.logger.info("Removed item by ID: " + id + " in " + timer.stopAndGetDiff() + " ms");
     }
 
     @Override
     public void delete(final String id) throws Exception {
-        // Events are not meant to be deleted
-        throw new Exception("Method not implemented: Events are never meant to be deleted. Did you mean to use remove()?");
+        this.delete(id);
     }
 
     @Override
     public User update(final User item) throws Exception {
         Timer timer = new Timer().start();
 
-        // You must use .get(...) to ensure the item hasn't been flagged as removed
-        this.get(item.getId());
-        UserUpdatedEvent updatedEvent = new UserUpdatedEvent(item);
-        UserEvent event = ElasticsearchUserDao.RemoveUnusedFields(updatedEvent);
-        this.dao.create(event);
+        User existingItem = this.get(item.getId());
+
+        if (existingItem == null) {
+            throw new Exception("Item doens't exist by id: " + item.getId());
+        }
+
+        String itemAsStr = this.objectMapper.writeValueAsString(item);
+        this.dao.updateDocument(itemAsStr, item.getId(), ElasticsearchUserDao.INDEX_BASE_NAME);
         this.logger.info("Updated item by ID: " + item.getId() + " in " + timer.stopAndGetDiff() + " ms");
         return item;
     }
 
-    public Boolean verifyRemoval(final String id) throws Exception {
-        return this.dao.verifyRemoval(id, UserEvent.CATEGORY, UserEvent.DATASET);
+    @Override
+    public Boolean verifyRemoval(String id) throws Exception {
+        return this.tryAndGetItem(id) == null;
     }
 
     @Override
     public void setupIndex() throws Exception {
-
+        throw new Exception("Method not implemented yet");
     }
 }
