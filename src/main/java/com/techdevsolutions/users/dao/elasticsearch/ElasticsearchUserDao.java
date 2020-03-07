@@ -174,7 +174,7 @@ public class ElasticsearchUserDao implements DaoCrudInterface<User> {
     }
 
     @Override
-    public void setupIndex() throws Exception {
+    public void install() throws Exception {
         throw new Exception("Method not implemented yet");
     }
 }

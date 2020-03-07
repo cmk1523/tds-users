@@ -122,7 +122,7 @@ public class ElasticsearchUserDaoIntegrationTest {
         User user = UserTest.GenerateTestUser();
         User created = this.dao.create(user);
         this.ids.add(created.getId());
-        this.dao.remove(user.getId());
+        this.dao.remove(created.getId());
 
         try {
             this.dao.get(created.getId());

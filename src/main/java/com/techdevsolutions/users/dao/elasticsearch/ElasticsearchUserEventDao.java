@@ -151,7 +151,7 @@ public class ElasticsearchUserEventDao implements DaoCrudInterface<User> {
     }
 
     @Override
-    public void setupIndex() throws Exception {
+    public void install() throws Exception {
 
     }
 }

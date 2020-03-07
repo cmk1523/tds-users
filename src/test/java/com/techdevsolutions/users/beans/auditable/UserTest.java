@@ -13,9 +13,13 @@ public class UserTest {
     public static User GenerateTestUser() {
         User item = new User();
         item.setId("test-" + UUID.randomUUID().toString());
-        item.setName("test user");
+        item.setFirstName("test first name");
+        item.setLastName("test last name");
+        item.setName(item.getFirstName() + " " + item.getLastName());
         item.setEmail("testuser@gmail.com");
-        item.setCreated(123L);
+        item.getRoles().add("USER");
+        item.getTags().add("test-tag");
+        item.setCreated(123456789L);
         return item;
     }
 
@@ -24,6 +28,8 @@ public class UserTest {
         item.setId("test-456");
         item.setName("John Smith");
         item.setEmail("johnsmith@gmail.com");
+        item.getRoles().add("USER");
+        item.getTags().add("test-tag");
         item.setCreated(123456789L);
         return item;
     }
