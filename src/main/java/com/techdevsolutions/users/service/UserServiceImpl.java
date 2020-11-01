@@ -31,8 +31,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<User> getAll() throws Exception {
-        Search search = new Search();
+    public List<User> getAll(Search search) throws Exception {
         return this.dao.search(search);
     }
 
