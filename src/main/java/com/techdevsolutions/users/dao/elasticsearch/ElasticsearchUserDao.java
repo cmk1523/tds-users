@@ -2,6 +2,7 @@ package com.techdevsolutions.users.dao.elasticsearch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.techdevsolutions.common.beans.Search;
 import com.techdevsolutions.common.beans.elasticsearchCommonSchema.Event;
 import com.techdevsolutions.common.dao.DaoCrudInterface;
 import com.techdevsolutions.common.dao.elasticsearch.BaseElasticsearchHighLevel;
@@ -45,8 +46,9 @@ public class ElasticsearchUserDao implements DaoCrudInterface<User> {
     }
 
     @Override
-    public List<User> search() throws Exception {
-        throw new Exception("Methd not yet implemented");
+    public List<User> search(Search search) throws Exception {
+        // return this.dao.getDocuments();
+        return null;
     }
 
     private User tryAndGetItem(String id) throws Exception {

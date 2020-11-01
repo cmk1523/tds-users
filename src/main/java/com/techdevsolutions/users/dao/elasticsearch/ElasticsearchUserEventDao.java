@@ -2,6 +2,7 @@ package com.techdevsolutions.users.dao.elasticsearch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.techdevsolutions.common.beans.Search;
 import com.techdevsolutions.common.beans.elasticsearchCommonSchema.Event;
 import com.techdevsolutions.common.dao.DaoCrudInterface;
 import com.techdevsolutions.common.dao.elasticsearch.events.EventElasticsearchDAO;
@@ -19,6 +20,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Repository
 public class ElasticsearchUserEventDao implements DaoCrudInterface<User> {
@@ -62,8 +64,26 @@ public class ElasticsearchUserEventDao implements DaoCrudInterface<User> {
     }
 
     @Override
-    public List<User> search() {
-        return null;
+    public List<User> search(Search search) throws Exception {
+        Timer timer = new Timer().start();
+
+        try {
+            if (search == null) {
+                throw new IllegalArgumentException("search is null");
+            }
+
+            String query = "";
+            List<Event> events = this.dao.search(query);
+            List<User> userEvents = events.stream()
+                    .map((i) -> (new ObjectMapper().convertValue(i, UserEvent.class)).getData())
+                    .collect(Collectors.toList());
+
+            this.logger.info("Got " + userEvents.size() + " in " + timer.stopAndGetDiff() + " ms");
+            return userEvents;
+        } catch (Exception e) {
+            this.logger.info("Failed to search items in " + timer.stopAndGetDiff() + " ms");
+            throw e;
+        }
     }
 
     @Override

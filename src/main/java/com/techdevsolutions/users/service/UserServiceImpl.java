@@ -1,5 +1,6 @@
 package com.techdevsolutions.users.service;
 
+import com.techdevsolutions.common.beans.Search;
 import com.techdevsolutions.common.dao.DaoCrudInterface;
 import com.techdevsolutions.common.service.core.Timer;
 import com.techdevsolutions.users.beans.auditable.User;
@@ -25,13 +26,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<User> search() throws Exception {
-        throw new Exception("Method not implemented");
+    public List<User> search(Search search) throws Exception {
+        return this.dao.search(search);
     }
 
     @Override
     public List<User> getAll() throws Exception {
-        throw new Exception("Method not implemented");
+        Search search = new Search();
+        return this.dao.search(search);
     }
 
     @Override

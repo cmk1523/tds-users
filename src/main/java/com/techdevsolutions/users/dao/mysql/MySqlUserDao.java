@@ -1,5 +1,6 @@
 package com.techdevsolutions.users.dao.mysql;
 
+import com.techdevsolutions.common.beans.Search;
 import com.techdevsolutions.common.dao.DaoCrudInterface;
 import com.techdevsolutions.common.service.core.DateUtils;
 import com.techdevsolutions.users.beans.auditable.User;
@@ -30,7 +31,7 @@ public class MySqlUserDao implements DaoCrudInterface<User> {
     }
 
     @Override
-    public List<User> search() throws Exception {
+    public List<User> search(Search search) throws Exception {
         String sql = "SELECT id,name,firstName,lastName,email,tags,roles,created " +
                 "FROM Users";
 //        this.logger.debug("sql: " + sql);

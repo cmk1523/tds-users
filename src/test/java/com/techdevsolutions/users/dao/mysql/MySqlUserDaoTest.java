@@ -1,5 +1,6 @@
 package com.techdevsolutions.users.dao.mysql;
 
+import com.techdevsolutions.common.beans.Search;
 import com.techdevsolutions.users.beans.auditable.User;
 import com.techdevsolutions.users.beans.auditable.UserTest;
 import org.junit.Assert;
@@ -24,10 +25,10 @@ public class MySqlUserDaoTest {
     }
 
     @Test
-    public void search() throws Exception {
+    public void search(Search search) throws Exception {
         User user = UserTest.GenerateTestUser();
         User created = this.dao.create(user);
-        List<User> items = this.dao.search();
+        List<User> items = this.dao.search(search);
         Assert.assertEquals(1, items.stream().filter((i) -> i.getId().equals(created.getId())).count());
     }
 
